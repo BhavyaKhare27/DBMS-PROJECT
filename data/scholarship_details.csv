@@ -1,0 +1,11 @@
+scholarship_id,name,provider,amount,type,max_income_limit,min_cgpa,category_applicable,total_slots
+1,Merit Excellence Scholarship,Govt of India,50000,Merit,1000000,8.5,"GEN,OBC,SC,ST",120
+2,Need Based Support Scheme,State Government,40000,Need,300000,6.5,"GEN,OBC,SC,ST",200
+3,SC/ST Welfare Scholarship,Social Welfare Dept,60000,Need,500000,6,"SC,ST",150
+4,OBC Empowerment Scholarship,Backward Classes Dept,55000,Need,400000,6.5,OBC,180
+5,Women in Tech Scholarship,Tech Foundation,70000,Merit,800000,7.5,"GEN,OBC,SC,ST",80
+6,Merit-cum-Means Scholarship,Minority Affairs,65000,Both,350000,7,"GEN,OBC,SC,ST",100
+7,Economically Weaker Section Grant,UGC,45000,Need,250000,6,GEN,140
+8,National Scholarship Portal,Central Government ,400000,Need,200000,7,"OBC,SC,ST",90
+9,Pragathi Merit-cum-Means Scholarship for girls,AICTE(Govt of India),30000,Both,800000,7.5,"GEN,OBC,SC,ST",60
+10,Central Sector Scholarship,NHRD,20000,Merit,250000,7,"GEN,OBC,SC,ST",100
