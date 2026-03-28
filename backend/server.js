@@ -140,6 +140,7 @@ app.get("/api/applications", (req, res) => {
 
     JOIN income_details i ON s.student_id = i.student_id
     JOIN scholarship sc ON a.scholarship_id = sc.scholarship_id
+    ORDER BY s.student_id ASC
   `;
 
   db.query(query, (err, results) => {
@@ -168,14 +169,56 @@ app.get("/api/applications", (req, res) => {
 app.post("/api/applications", (req, res) => {
   const { student, scholarship } = req.body;
 
+  // Check if already applied
+  const checkQuery = `SELECT * FROM applications WHERE student_id = ? AND scholarship_id = ?`;
+  db.query(checkQuery, [student.id, scholarship.id], (err, existing) => {
+    if (err) return res.status(500).json(err);
+    if (existing.length > 0) return res.status(400).json({ message: "Already applied" });
+
+    const query = `
+      INSERT INTO applications (student_id, scholarship_id, applied_date, status)
+      VALUES (?, ?, NOW(), 'Pending')
+    `;
+
+    db.query(query, [student.id, scholarship.id], (err, result) => {
+      if (err) return res.status(500).json(err);
+      res.json({ success: true, applicationId: result.insertId });
+    });
+  });
+});
+
+
+// ─────────────────────────────────────────────
+// 📄 GET STUDENT'S OWN APPLICATIONS
+// ─────────────────────────────────────────────
+app.get("/api/applications/student/:id", (req, res) => {
+  const studentId = req.params.id;
+
   const query = `
-    INSERT INTO applications (student_id, scholarship_id, applied_date, status)
-    VALUES (?, ?, NOW(), 'Pending')
+    SELECT 
+      a.application_id,
+      sc.name AS scholarship_name,
+      sc.amount,
+      a.applied_date,
+      a.status
+    FROM applications a
+    JOIN scholarship sc ON a.scholarship_id = sc.scholarship_id
+    WHERE a.student_id = ?
+    ORDER BY a.applied_date DESC
   `;
 
-  db.query(query, [student.id, scholarship.id], (err) => {
+  db.query(query, [studentId], (err, results) => {
     if (err) return res.status(500).json(err);
-    res.json({ success: true });
+
+    const formatted = results.map(r => ({
+      id: r.application_id,
+      name: r.scholarship_name,
+      amount: r.amount,
+      date: r.applied_date ? new Date(r.applied_date).toLocaleDateString("en-IN") : "—",
+      status: r.status
+    }));
+
+    res.json(formatted);
   });
 });
 

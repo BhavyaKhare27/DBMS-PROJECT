@@ -66,7 +66,7 @@ CREATE TABLE scholarship (
 
 -- 5. Create Applications Table
 CREATE TABLE applications (
-  application_id INT PRIMARY KEY,
+  application_id INT PRIMARY KEY AUTO_INCREMENT,
   student_id INT,
   scholarship_id INT,
   applied_date DATE,

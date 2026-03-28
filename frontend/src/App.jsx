@@ -487,20 +487,34 @@ const StudentRankings = ({ student, onNav }) => {
 // ─── Scholarship Listing ──────────────────────────────────────────────────────
 const ScholarshipListing = ({ student, onNav }) => {
   const [scholarships, setScholarships] = useState([]);
-  const [applied, setApplied] = useState([]);
+  const [appliedScholarshipIds, setAppliedScholarshipIds] = useState([]);
   
   useEffect(() => {
     fetch("http://127.0.0.1:5000/api/scholarships").then(r => r.json()).then(setScholarships).catch(console.error);
-  }, []);
+    // Load already-applied scholarship IDs from the DB
+    fetch(`http://127.0.0.1:5000/api/applications/student/${student.id}`)
+      .then(r => r.json())
+      .then(apps => {
+        // We need scholarship IDs, but the endpoint returns names.
+        // We'll match by name after scholarships load. For now store names.
+        setAppliedScholarshipIds(apps.map(a => a.name));
+      })
+      .catch(console.error);
+  }, [student.id]);
 
   const handleApply = async (s) => {
     if (!isEligible(s, student)) { alert("You don't meet the eligibility criteria for this scholarship."); return; }
     try {
-      await fetch("http://127.0.0.1:5000/api/applications", {
+      const res = await fetch("http://127.0.0.1:5000/api/applications", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ student, scholarship: s })
       });
-      setApplied(p => [...p, s.id]);
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.message || "Error applying");
+        return;
+      }
+      setAppliedScholarshipIds(p => [...p, s.name]);
       alert(`✅ Applied for "${s.name}" successfully!`);
     } catch(err) {
       alert("Error applying");
@@ -514,7 +528,7 @@ const ScholarshipListing = ({ student, onNav }) => {
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {scholarships.map(s => {
           const elig = isEligible(s, student); 
-          const done = applied.includes(s.id) || (student?.applications && student.applications.some(a => a.scholarship === s.name));
+          const done = appliedScholarshipIds.includes(s.name);
           return (
             <div key={s.id} style={{ background: G.surface, border: `1px solid ${elig ? G.blueDark : G.border}`, borderRadius: 12, padding: 24, position: "relative" }}>
               {elig && <span style={{ position: "absolute", top: 16, right: 16, background: "#00c89622", color: "#00c896", border: "1px solid #00c89655", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontWeight: 700, fontFamily: "system-ui" }}>✓ Eligible</span>}
@@ -537,11 +551,14 @@ const ScholarshipListing = ({ student, onNav }) => {
 
 // ─── Application Status ───────────────────────────────────────────────────────
 const ApplicationStatus = ({ student, onNav }) => {
-  const [apps, setApps] = useState(student.applications || []);
+  const [apps, setApps] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    fetch("http://127.0.0.1:5000/api/students/" + student.id).then(r => r.json()).then(data => {
-      if(data.applications) setApps(data.applications);
-    }).catch(console.error);
+    fetch(`http://127.0.0.1:5000/api/applications/student/${student.id}`)
+      .then(r => r.json())
+      .then(data => { setApps(data); setLoading(false); })
+      .catch(err => { console.error(err); setLoading(false); });
   }, [student.id]);
 
   return (
@@ -550,23 +567,33 @@ const ApplicationStatus = ({ student, onNav }) => {
     <div style={{ ...css.heading, marginBottom: 4 }}>📝 My Applications</div>
     <div style={{ ...css.sub, marginBottom: 28 }}>Track your scholarship application statuses</div>
     <div style={css.card}>
-      <table style={css.table}>
-        <thead><tr>{["Scholarship", "Applied On", "Status", "Rank"].map(h => <th key={h} style={css.th}>{h}</th>)}</tr></thead>
-        <tbody>
-          {apps.map(a => (
-            <tr key={a.id} onMouseEnter={e => e.currentTarget.style.background = G.surfaceHover} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-              <td style={{ ...css.td, fontWeight: 600 }}>{a.name}</td>
-              <td style={{ ...css.td, color: G.muted }}>{a.date}</td>
-              <td style={css.td}><StatusBadge status={a.status} /></td>
-              <td style={{ ...css.td, color: G.blue, fontWeight: 700 }}>{a.rank ? `#${a.rank}` : "—"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {loading ? (
+        <div style={{ textAlign: "center", padding: 40, color: G.muted }}>Loading applications...</div>
+      ) : apps.length === 0 ? (
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📭</div>
+          <div style={{ color: G.muted, fontSize: 14, marginBottom: 16 }}>You haven't applied to any scholarships yet.</div>
+          <button style={css.btn} onClick={() => onNav("scholarships")}>Browse Scholarships →</button>
+        </div>
+      ) : (
+        <table style={css.table}>
+          <thead><tr>{["Scholarship", "Amount", "Applied On", "Status"].map(h => <th key={h} style={css.th}>{h}</th>)}</tr></thead>
+          <tbody>
+            {apps.map(a => (
+              <tr key={a.id} onMouseEnter={e => e.currentTarget.style.background = G.surfaceHover} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                <td style={{ ...css.td, fontWeight: 600 }}>{a.name}</td>
+                <td style={{ ...css.td, color: G.blue, fontWeight: 700 }}>{fmt(a.amount)}</td>
+                <td style={{ ...css.td, color: G.muted }}>{a.date}</td>
+                <td style={css.td}><StatusBadge status={a.status} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
     <div style={{ ...css.card, background: "#00c89608", borderColor: "#00c89633" }}>
       <div style={{ color: "#00c896", fontWeight: 600, marginBottom: 6 }}>💡 Application Tips</div>
-      <div style={{ color: G.muted, fontSize: 13, lineHeight: 1.7 }}>Applications are reviewed within 7–10 working days. Merit rankings are computed automatically from your CGPA and verified income documents.</div>
+      <div style={{ color: G.muted, fontSize: 13, lineHeight: 1.7 }}>Applications are reviewed within 7–10 working days. When admin approves or rejects your application, the updated status will appear here automatically.</div>
     </div>
   </div>
   );
@@ -620,6 +647,7 @@ const AdminDashboard = () => {
   const [filterCgpa, setFilterCgpa] = useState("All");
   const [filterScholarship, setFilterScholarship] = useState("All");
   const [searchName, setSearchName] = useState("");
+  const [searchStudentId, setSearchStudentId] = useState("");
 
   useEffect(() => {
     fetch("http://127.0.0.1:5000/api/applications").then(r => r.json()).then(setApps).catch(console.error);
@@ -680,6 +708,7 @@ const AdminDashboard = () => {
     if (filterScholarship !== "All" && a.scholarship !== filterScholarship) return false;
     if (!cgpaInRange(Number(a.cgpa), filterCgpa)) return false;
     if (searchName && !a.name?.toLowerCase().includes(searchName.toLowerCase())) return false;
+    if (searchStudentId && !String(a.studentId).includes(searchStudentId)) return false;
     return true;
   });
 
@@ -690,6 +719,7 @@ const AdminDashboard = () => {
     filterScholarship !== "All",
     filterCgpa !== "All",
     searchName !== "",
+    searchStudentId !== "",
   ].filter(Boolean).length;
 
   const resetFilters = () => {
@@ -699,6 +729,7 @@ const AdminDashboard = () => {
     setFilterScholarship("All");
     setFilterCgpa("All");
     setSearchName("");
+    setSearchStudentId("");
   };
 
   // ── Select style helper ───────────────────────────────────────────────────
@@ -768,10 +799,16 @@ const AdminDashboard = () => {
             {/* Row 1: search + reset */}
             <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
               <input
-                style={{ ...css.input, marginTop: 0, maxWidth: 220, fontSize: 13 }}
+                style={{ ...css.input, marginTop: 0, maxWidth: 180, fontSize: 13 }}
                 placeholder="🔍 Search by name..."
                 value={searchName}
                 onChange={e => setSearchName(e.target.value)}
+              />
+              <input
+                style={{ ...css.input, marginTop: 0, maxWidth: 160, fontSize: 13 }}
+                placeholder="🔍 Student ID..."
+                value={searchStudentId}
+                onChange={e => setSearchStudentId(e.target.value)}
               />
               {activeFilterCount > 0 && (
                 <button
