@@ -120,8 +120,8 @@ node import_data.js
 npm run dev
 ```
 Frontend: http://localhost:5173
-
 Backend: http://localhost:8000
+
 ---
 
 ##ER Diagram
