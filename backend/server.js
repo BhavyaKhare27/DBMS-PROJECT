@@ -1,6 +1,8 @@
+
 const express = require("express");
 const mysql = require("mysql2");
 const cors = require("cors");
+require("dotenv").config();
 
 const app = express();
 app.use(cors());
@@ -9,15 +11,15 @@ app.use(express.json());
 
 // 🔌 MySQL Connection
 const db = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "***REMOVED***",
-  database: "scholarship_db"
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME
 });
 
 db.connect(err => {
   if (err) {
-    console.error("❌ MySQL connection failed:", err);
+    console.error("❌ MySQL connection failed:", err.message);
     return;
   }
   console.log("✅ Connected to MySQL");
@@ -57,17 +59,22 @@ app.get("/api/students/:id", (req, res) => {
       const record = academics.length > 0 ? academics[0] : {};
       const semesters = [];
 
-      // ✅ Build semesters array from sem_1_cgpa, sem_2_cgpa...
+      // Build semesters array from sem_1_cgpa, sem_2_cgpa...
       if (record && record.semester) {
         for (let i = 1; i <= record.semester; i++) {
           const key = `sem_${i}_cgpa`;
           const attKey = `sem_${i}_attendance`;
+
           if (record[key] !== undefined && record[key] !== null) {
             semesters.push({
               sem: i,
               cgpa: record[key],
               backlogs: i === record.semester ? (record.backlog_count || 0) : 0,
-              attendance: record[attKey] ? Math.round(record[attKey]) : (i === record.semester ? Math.round(record.attendance_percentage || 0) : 0)
+              attendance: record[attKey]
+                ? Math.round(record[attKey])
+                : (i === record.semester
+                    ? Math.round(record.attendance_percentage || 0)
+                    : 0)
             });
           }
         }
@@ -80,14 +87,18 @@ app.get("/api/students/:id", (req, res) => {
         year: student.year_of_study,
         category: student.category,
         cgpa: record.cgpa || 0,
-        attendance: record.attendance_percentage ? Math.round(record.attendance_percentage) : 0,
+        attendance: record.attendance_percentage
+          ? Math.round(record.attendance_percentage)
+          : 0,
         backlogs: record.backlog_count || 0,
         annualIncome: student.annual_income || 0,
-        semesters: semesters   // 🔥 Fixed: Correctly builds array from MySQL row columns
+        semesters: semesters
       });
     });
   });
 });
+
+
 // ─────────────────────────────────────────────
 // 🏆 GET SCHOLARSHIPS
 // ─────────────────────────────────────────────
@@ -151,7 +162,9 @@ app.get("/api/applications", (req, res) => {
       studentId: r.student_id,
       name: r.name,
       cgpa: r.cgpa || 0,
-      income: r.annual_income ? (r.annual_income / 100000).toFixed(1) + "L" : "0L",
+      income: r.annual_income
+        ? (r.annual_income / 100000).toFixed(1) + "L"
+        : "0L",
       category: r.category,
       branch: r.branch,
       scholarship: r.scholarship,
@@ -170,10 +183,15 @@ app.post("/api/applications", (req, res) => {
   const { student, scholarship } = req.body;
 
   // Check if already applied
-  const checkQuery = `SELECT * FROM applications WHERE student_id = ? AND scholarship_id = ?`;
+  const checkQuery = `
+    SELECT * FROM applications
+    WHERE student_id = ? AND scholarship_id = ?
+  `;
+
   db.query(checkQuery, [student.id, scholarship.id], (err, existing) => {
     if (err) return res.status(500).json(err);
-    if (existing.length > 0) return res.status(400).json({ message: "Already applied" });
+    if (existing.length > 0)
+      return res.status(400).json({ message: "Already applied" });
 
     const query = `
       INSERT INTO applications (student_id, scholarship_id, applied_date, status)
@@ -214,7 +232,9 @@ app.get("/api/applications/student/:id", (req, res) => {
       id: r.application_id,
       name: r.scholarship_name,
       amount: r.amount,
-      date: r.applied_date ? new Date(r.applied_date).toLocaleDateString("en-IN") : "—",
+      date: r.applied_date
+        ? new Date(r.applied_date).toLocaleDateString("en-IN")
+        : "—",
       status: r.status
     }));
 
@@ -269,7 +289,9 @@ app.get("/api/rankings", (req, res) => {
       branch: r.branch,
       year: r.year_of_study,
       cgpa: r.cgpa || 0,
-      attendance: r.attendance_percentage ? Math.round(r.attendance_percentage) : 0,
+      attendance: r.attendance_percentage
+        ? Math.round(r.attendance_percentage)
+        : 0,
       backlogs: r.backlog_count || 0
     }));
 
